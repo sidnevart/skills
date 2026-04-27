@@ -3,51 +3,55 @@ const path = require('path');
 
 const SKILLS_ROOT = path.join(__dirname, '..', 'skills');
 
-function getGroups() {
-  if (!fs.existsSync(SKILLS_ROOT)) return [];
-  return fs.readdirSync(SKILLS_ROOT).filter((f) => {
-    return fs.statSync(path.join(SKILLS_ROOT, f)).isDirectory();
-  });
-}
-
-function getSkillsInGroup(group) {
-  const groupDir = path.join(SKILLS_ROOT, group);
-  if (!fs.existsSync(groupDir)) return [];
-  return fs.readdirSync(groupDir).filter((f) => {
-    return fs.statSync(path.join(groupDir, f)).isDirectory();
-  });
-}
-
-function getAllSkills() {
+// Walk the skills tree recursively.
+// A directory is a skill if it directly contains SKILL.md.
+// Otherwise descend into subdirectories.
+function findSkills(dir, prefix) {
   const result = [];
-  for (const group of getGroups()) {
-    for (const name of getSkillsInGroup(group)) {
-      result.push({ group, name, id: `${group}/${name}` });
+  if (!fs.existsSync(dir)) return result;
+
+  for (const entry of fs.readdirSync(dir).sort()) {
+    const entryPath = path.join(dir, entry);
+    if (!fs.statSync(entryPath).isDirectory()) continue;
+
+    const skillFile = path.join(entryPath, 'SKILL.md');
+    const id = prefix ? `${prefix}/${entry}` : entry;
+
+    if (fs.existsSync(skillFile)) {
+      result.push({ name: entry, group: prefix || '', id, skillPath: skillFile });
+    } else {
+      result.push(...findSkills(entryPath, id));
     }
   }
   return result;
 }
 
+function getAllSkills() {
+  return findSkills(SKILLS_ROOT, '');
+}
+
+// Resolve a skill by full ID (e.g. "superpowers/planning/brainstorming")
+// or by bare name (e.g. "brainstorming") — returns first match.
 function resolveSkill(id) {
-  const parts = id.split('/');
-  if (parts.length === 2) {
-    const [group, name] = parts;
-    const skillPath = path.join(SKILLS_ROOT, group, name, 'SKILL.md');
-    if (fs.existsSync(skillPath)) return { group, name, skillPath };
-    return null;
-  }
-  // bare name — search all groups
-  for (const group of getGroups()) {
-    const skillPath = path.join(SKILLS_ROOT, group, id, 'SKILL.md');
-    if (fs.existsSync(skillPath)) return { group, name: id, skillPath };
-  }
-  return null;
+  const all = getAllSkills();
+  return all.find((s) => s.id === id || s.name === id) || null;
 }
 
 function getSkillContent(id) {
   const skill = resolveSkill(id);
   if (!skill) return null;
-  return { ...skill, id: `${skill.group}/${skill.name}`, content: fs.readFileSync(skill.skillPath, 'utf8') };
+  return { ...skill, content: fs.readFileSync(skill.skillPath, 'utf8') };
 }
 
-module.exports = { getGroups, getSkillsInGroup, getAllSkills, resolveSkill, getSkillContent };
+// Return all skills whose ID starts with the given prefix (group/subgroup support).
+function getSkillsByPrefix(prefix) {
+  return getAllSkills().filter((s) => s.id === prefix || s.id.startsWith(prefix + '/'));
+}
+
+// Return all top-level group names (first path segment).
+function getTopGroups() {
+  const groups = new Set(getAllSkills().map((s) => s.id.split('/')[0]));
+  return [...groups].sort();
+}
+
+module.exports = { getAllSkills, resolveSkill, getSkillContent, getSkillsByPrefix, getTopGroups };

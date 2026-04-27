@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 const { program } = require('commander');
-const { getAllSkills, getSkillsInGroup, getGroups } = require('../src/registry');
+const { getAllSkills, getSkillsByPrefix, getTopGroups } = require('../src/registry');
 const { install } = require('../src/install');
 const { version } = require('../package.json');
 
@@ -13,61 +13,66 @@ program
 // ─── list ────────────────────────────────────────────────────────────────────
 
 program
-  .command('list [group]')
-  .description('List available skills')
-  .action((group) => {
-    if (group) {
-      const names = getSkillsInGroup(group);
-      if (names.length === 0) {
-        console.log(`No skills found in group "${group}".`);
-        return;
-      }
-      console.log(`\nGroup: ${group}\n`);
-      for (const name of names) {
-        console.log(`  ${group}/${name}`);
-      }
-    } else {
-      const skills = getAllSkills();
-      if (skills.length === 0) {
-        console.log('No skills found.');
-        return;
-      }
-      const groups = {};
-      for (const s of skills) {
-        groups[s.group] = groups[s.group] || [];
-        groups[s.group].push(s.name);
-      }
-      console.log(`\nAvailable skills (${skills.length} total):\n`);
-      for (const [g, names] of Object.entries(groups)) {
-        console.log(`  ${g}/`);
-        for (const n of names) {
-          console.log(`    ${n}`);
-        }
-      }
-      console.log(`\nInstall: skills install <group/name>`);
-      console.log(`         skills install --group <group>`);
+  .command('list [prefix]')
+  .description('List available skills (optionally filtered by group prefix)')
+  .action((prefix) => {
+    const skills = prefix ? getSkillsByPrefix(prefix) : getAllSkills();
+
+    if (skills.length === 0) {
+      console.log(prefix ? `No skills found under "${prefix}".` : 'No skills found.');
+      return;
     }
+
+    // Build a nested tree for display
+    const tree = {};
+    for (const s of skills) {
+      const parts = s.id.split('/');
+      let node = tree;
+      for (let i = 0; i < parts.length - 1; i++) {
+        node[parts[i]] = node[parts[i]] || {};
+        node = node[parts[i]];
+      }
+      node[`__skill__${parts[parts.length - 1]}`] = s.id;
+    }
+
+    console.log(`\nAvailable skills (${skills.length}):\n`);
+    printTree(tree, '');
+    console.log(`\nInstall: skills install <id>      e.g. skills install superpowers/planning/brainstorming`);
+    console.log(`         skills install --group <prefix>  e.g. skills install --group superpowers`);
   });
+
+function printTree(node, indent) {
+  for (const [key, val] of Object.entries(node)) {
+    if (key.startsWith('__skill__')) {
+      const name = key.replace('__skill__', '');
+      console.log(`${indent}  ${name}`);
+    } else {
+      console.log(`${indent}${key}/`);
+      printTree(val, indent + '  ');
+    }
+  }
+}
 
 // ─── install ─────────────────────────────────────────────────────────────────
 
 program
   .command('install [skills...]')
-  .description('Install skills into .claude/skills/ (and optionally AGENTS.md for Codex)')
-  .option('-g, --global', 'Install globally into ~/.claude/skills/ instead of ./.claude/skills/')
-  .option('--group <group>', 'Install all skills in a group (e.g. --group selfedu)')
-  .option('--codex', 'Also write to AGENTS.md for Codex (in addition to Claude)')
+  .description('Install skills into .claude/skills/ and/or AGENTS.md')
+  .option('-g, --global', 'Install globally into ~/.claude/skills/')
+  .option('--group <prefix>', 'Install all skills under a prefix (e.g. --group superpowers/planning)')
+  .option('--codex', 'Also write to AGENTS.md for Codex')
   .option('--codex-only', 'Write to AGENTS.md only, skip Claude install')
   .addHelpText(
     'after',
     `
 Examples:
-  skills install selfedu/learning-ai-product
-  skills install selfedu/learning-ai-product --global
-  skills install --group selfedu
+  skills install superpowers/planning/brainstorming
+  skills install superpowers/planning/brainstorming --global
+  skills install --group superpowers
+  skills install --group superpowers/quality
   skills install --group selfedu --codex
-  skills install selfedu/learning-product-reviewer --codex-only
-  skills install  # installs everything
+  skills install selfedu/learning-ai-product --codex-only
+  skills install   # installs everything
 `
   )
   .action((ids, opts) => {
@@ -84,7 +89,7 @@ Examples:
 
 program
   .command('info <skill>')
-  .description('Show description and first lines of a skill')
+  .description('Show description of a skill (by id or bare name)')
   .action((id) => {
     const { getSkillContent } = require('../src/registry');
     const skill = getSkillContent(id);
@@ -92,13 +97,26 @@ program
       console.error(`Skill "${id}" not found. Run "skills list" to see available skills.`);
       process.exit(1);
     }
-    // Extract frontmatter description
     const match = skill.content.match(/^---\n([\s\S]*?)\n---/);
+    console.log(`\n[${skill.id}]\n`);
     if (match) {
-      console.log(`\n[${skill.id}]\n`);
       console.log(match[1].trim());
     } else {
-      console.log(skill.content.slice(0, 500));
+      console.log(skill.content.slice(0, 400));
+    }
+  });
+
+// ─── groups ───────────────────────────────────────────────────────────────────
+
+program
+  .command('groups')
+  .description('List top-level groups')
+  .action(() => {
+    const groups = getTopGroups();
+    console.log('\nGroups:\n');
+    for (const g of groups) {
+      const count = getSkillsByPrefix(g).length;
+      console.log(`  ${g}  (${count} skills)`);
     }
   });
 

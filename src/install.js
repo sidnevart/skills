@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { getSkillContent, getSkillsInGroup, getAllSkills } = require('./registry');
+const { getSkillContent, getSkillsByPrefix, getAllSkills } = require('./registry');
 
 function ensureDir(dir) {
   fs.mkdirSync(dir, { recursive: true });
@@ -16,16 +16,15 @@ function installClaude(skill, skillsDir) {
 
 function installCodex(skill, projectDir) {
   const agentsFile = path.join(projectDir, 'AGENTS.md');
-  const marker = `<!-- skill:${skill.group}/${skill.name} -->`;
+  const marker = `<!-- skill:${skill.id} -->`;
   const block = `\n\n${marker}\n${skill.content}`;
 
   if (fs.existsSync(agentsFile)) {
     let content = fs.readFileSync(agentsFile, 'utf8');
     if (content.includes(marker)) {
-      // replace existing block — find start and next marker
       const start = content.indexOf(marker);
       const nextMarker = content.indexOf('\n<!-- skill:', start + marker.length);
-      const before = content.slice(0, start - 2); // trim preceding \n\n
+      const before = content.slice(0, start - 2);
       const after = nextMarker === -1 ? '' : content.slice(nextMarker);
       content = before + block + after;
     } else {
@@ -41,12 +40,12 @@ function installCodex(skill, projectDir) {
 
 function resolveSkills({ ids, group }) {
   if (group) {
-    const names = getSkillsInGroup(group);
-    if (names.length === 0) {
-      console.error(`Group "${group}" not found or empty.`);
+    const skills = getSkillsByPrefix(group);
+    if (skills.length === 0) {
+      console.error(`No skills found for group/prefix "${group}". Run "skills list" to see available skills.`);
       process.exit(1);
     }
-    return names.map((n) => getSkillContent(`${group}/${n}`)).filter(Boolean);
+    return skills.map((s) => getSkillContent(s.id)).filter(Boolean);
   }
   if (ids && ids.length > 0) {
     return ids.map((id) => {
