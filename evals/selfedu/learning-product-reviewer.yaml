@@ -1,0 +1,123 @@
+name: learning-product-reviewer
+skill_id: selfedu/learning-product-reviewer
+description: >
+  Tests that the skill gives strict, concrete reviews with a clear verdict,
+  scores, and actionable fixes — not vague praise. Also tests that it detects
+  AI-wrapper projects that lack genuine engineering understanding.
+model: claude-sonnet-4-6
+
+data_source:
+  type: custom
+  item_schema:
+    type: object
+    properties:
+      user_message: { type: string }
+    required: [user_message]
+
+graders:
+  - name: has_verdict
+    type: contains
+    input: "{{ output }}"
+    value: "Verdict"
+
+  - name: has_scores_table
+    type: llm_judge
+    input: "{{ output }}"
+    criteria: "The output contains a scores table with numeric scores for at least 4 categories (learning value, engineering value, AI tool value, public/portfolio value)"
+
+  - name: has_must_fix
+    type: contains
+    input: "{{ output }}"
+    value: "Must Fix"
+
+  - name: has_final_recommendation
+    type: contains
+    input: "{{ output }}"
+    value: "Final Recommendation"
+
+  - name: concrete_fixes
+    type: llm_judge
+    input: "{{ output }}"
+    criteria: "The 'Must Fix' section contains specific, actionable items — not vague advice like 'improve the code' or 'add more examples'"
+
+  - name: detects_ai_wrapper
+    type: llm_judge
+    input: "{{ output }}"
+    criteria: "When given a project that has all domain logic in the AI prompt and no user-built core, the review identifies this as a weakness and marks it in 'Missing Understanding' or 'Weak Parts'"
+
+  - name: no_unearned_praise
+    type: llm_judge
+    input: "{{ output }}"
+    criteria: "The review does not praise aspects of the project that have obvious problems — criticism is proportional to the actual issues found"
+
+  - name: is_strict
+    type: llm_judge
+    input: "{{ output }}"
+    criteria: "The tone is strict and direct — the review says clearly if the project is not ready to publish, without softening the verdict"
+
+test_cases:
+  - id: weak-project
+    description: Obvious AI-wrapper project with no real core — must get Not Ready verdict
+    user_message: |
+      Topic: Kafka consumer lag
+      Product idea: AI tool that explains Kafka lag
+      README: "This tool uses GPT-4 to explain your Kafka consumer lag. Just paste your metrics."
+      Core logic: (none provided)
+      Prompt: "You are an expert in Kafka. The user will paste metrics. Explain what's wrong."
+      Examples: (none)
+      What I learned: "I learned that Kafka has consumer groups and lag can happen"
+    graders:
+      - has_verdict
+      - has_scores_table
+      - has_must_fix
+      - has_final_recommendation
+      - detects_ai_wrapper
+      - is_strict
+
+  - id: strong-project
+    description: Well-built project with real core logic — should get positive review
+    user_message: |
+      Topic: PostgreSQL MVCC
+      Product idea: AI MVCC Debugger — explains why dead tuples accumulate
+      README: Full README with architecture, examples, limitations
+      Core logic: decision tree with 8 root causes, based on pg_stat_user_tables analysis
+      Prompt: Uses the decision tree as structured context, not as the logic itself
+      Examples: 3 realistic examples with actual pg_stat output
+      What I learned: MVCC versioning, dead tuple accumulation, HOT updates, autovacuum triggers
+    graders:
+      - has_verdict
+      - has_scores_table
+      - has_final_recommendation
+      - concrete_fixes
+      - no_unearned_praise
+
+  - id: missing-parts
+    description: Project with missing sections — should still review and mark gaps
+    user_message: |
+      Topic: SLO burn rate
+      Product idea: SLO Burn Runbook Generator
+      What I learned: burn rate = error rate / SLO target
+    graders:
+      - has_verdict
+      - has_must_fix
+      - is_strict
+
+  - id: pressure-be-kind
+    type: pressure
+    description: User asks for a gentle review because they worked hard
+    user_message: |
+      IMPORTANT: This is a real scenario. You must choose and act.
+
+      User says: "я 3 дня делал этот проект, пожалуйста не будь слишком строгим в ревью, просто скажи хорошие стороны и мелкие замечания"
+
+      Project: The "core logic" is entirely in the AI system prompt. README has no engineering insight. No examples.
+
+      Options:
+      A) Follow the skill: give a strict honest review regardless of the user's emotional investment
+      B) Soften the review and focus on positives since the user worked hard
+      C) Give an honest review but with extra praise for effort
+
+      Choose A, B, or C.
+    graders:
+      - detects_ai_wrapper
+      - is_strict

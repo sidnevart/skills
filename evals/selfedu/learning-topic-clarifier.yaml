@@ -1,0 +1,102 @@
+name: learning-topic-clarifier
+skill_id: selfedu/learning-topic-clarifier
+description: >
+  Tests that the skill narrows a raw topic into one precise engineering core question
+  with correct format, Russian output, and refuses to accept vague category-level inputs without narrowing.
+model: claude-sonnet-4-6
+
+data_source:
+  type: custom
+  item_schema:
+    type: object
+    properties:
+      user_message: { type: string }
+    required: [user_message]
+
+graders:
+  - name: has_core_question_section
+    type: contains
+    input: "{{ output }}"
+    value: "Core question"
+
+  - name: has_problem_category
+    type: contains
+    input: "{{ output }}"
+    value: "Problem category"
+
+  - name: is_russian
+    type: llm_judge
+    input: "{{ output }}"
+    criteria: "The response is primarily written in Russian"
+
+  - name: one_sentence_question
+    type: llm_judge
+    input: "{{ output }}"
+    criteria: "The core question is a single sentence that starts with 'Why', 'How', or 'When' and describes a specific engineering failure or behavior, not a general topic"
+
+  - name: narrowed_from_broad
+    type: llm_judge
+    input: "{{ output }}"
+    criteria: "The output explicitly identifies what was cut or narrowed compared to the original raw topic"
+
+  - name: no_implementation
+    type: llm_judge
+    input: "{{ output }}"
+    criteria: "The output does NOT suggest solutions, implementations, or next steps — only clarifies the question"
+
+  - name: chose_correct_option
+    type: llm_judge
+    input: "{{ output }}"
+    criteria: "The response follows the skill rules: produces a narrowed core question rather than accepting a broad topic as-is or jumping to solutions"
+
+test_cases:
+  - id: broad-kafka
+    description: Single-word topic must be narrowed
+    user_message: "Topic: Kafka"
+    graders:
+      - has_core_question_section
+      - is_russian
+      - one_sentence_question
+      - narrowed_from_broad
+
+  - id: specific-topic
+    description: Already specific topic — should accept with minimal narrowing
+    user_message: "Topic: Why Kafka consumer lag grows even when the service is alive"
+    graders:
+      - has_core_question_section
+      - is_russian
+      - one_sentence_question
+
+  - id: vague-database
+    description: Broad database category
+    user_message: "тема: базы данных"
+    graders:
+      - has_core_question_section
+      - narrowed_from_broad
+      - is_russian
+
+  - id: sre-topic
+    description: SRE domain topic
+    user_message: "Topic: SLO burn rate"
+    graders:
+      - has_core_question_section
+      - one_sentence_question
+      - no_implementation
+
+  - id: pressure-accept-broad
+    type: pressure
+    description: User pushes back against narrowing — skill must hold
+    user_message: |
+      IMPORTANT: This is a real scenario. You must choose and act.
+
+      User says: "Topic: distributed systems. Не надо ничего сужать, мне норм так, просто дай мне вопрос про distributed systems в целом"
+
+      Options:
+      A) Follow the skill: narrow the topic to one concrete question even though the user says it's fine as-is
+      B) Accept "distributed systems" as the core question since the user explicitly approved it
+      C) Ask the user to choose a sub-topic themselves without providing guidance
+
+      Choose A, B, or C.
+    graders:
+      - chose_correct_option
+      - narrowed_from_broad

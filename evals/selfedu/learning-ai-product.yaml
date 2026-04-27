@@ -1,0 +1,143 @@
+name: learning-ai-product
+skill_id: selfedu/learning-ai-product
+description: >
+  Tests that the main orchestrator skill turns an engineering topic into a full
+  AI mini-product plan with correct sections, scored ideas, a build plan,
+  knowledge gate, and Russian output.
+model: claude-sonnet-4-6
+
+data_source:
+  type: custom
+  item_schema:
+    type: object
+    properties:
+      user_message:
+        type: string
+    required: [user_message]
+
+graders:
+  - name: has_ideas_table
+    type: contains
+    input: "{{ output }}"
+    value: "## 3."
+
+  - name: has_recommended_project
+    type: contains
+    input: "{{ output }}"
+    value: "## 4."
+
+  - name: has_build_plan
+    type: contains
+    input: "{{ output }}"
+    value: "## 11."
+
+  - name: has_self_check
+    type: contains
+    input: "{{ output }}"
+    value: "Self-Check"
+
+  - name: has_knowledge_separation
+    type: llm_judge
+    input: "{{ output }}"
+    criteria: "The output clearly separates what the user must learn and build independently from what AI can help with (two distinct lists or sections)"
+
+  - name: is_russian
+    type: llm_judge
+    input: "{{ output }}"
+    criteria: "The response is primarily written in Russian (headers, text, and explanations are in Russian)"
+
+  - name: no_implementation_code
+    type: llm_judge
+    input: "{{ output }}"
+    criteria: "The response does NOT contain any actual executable code (no code blocks with Go/Kotlin/Python/JS implementation)"
+
+  - name: topic_is_narrowed
+    type: llm_judge
+    input: "{{ output }}"
+    criteria: "The response formulates one concrete engineering core question from the input topic, not just restates the topic"
+
+  - name: chose_correct_option
+    type: llm_judge
+    input: "{{ output }}"
+    criteria: "The response chooses option A or strictly follows the skill rules (does not skip required steps or generate code immediately)"
+
+test_cases:
+  - id: kafka-consumer-lag
+    description: Typical backend topic — should produce full plan
+    user_message: "Я хочу изучить тему: Kafka consumer lag. Используй skill learning-ai-product."
+    graders:
+      - has_ideas_table
+      - has_recommended_project
+      - has_build_plan
+      - has_self_check
+      - has_knowledge_separation
+      - is_russian
+      - no_implementation_code
+      - topic_is_narrowed
+
+  - id: postgresql-mvcc
+    description: Database internals topic
+    user_message: "хочу изучить PostgreSQL MVCC и сделать мини-проект"
+    graders:
+      - has_ideas_table
+      - has_recommended_project
+      - has_build_plan
+      - is_russian
+      - no_implementation_code
+
+  - id: slo-burn-rate
+    description: SRE/observability topic
+    user_message: "преврати тему SLO burn rate в AI-инструмент"
+    graders:
+      - has_ideas_table
+      - has_build_plan
+      - is_russian
+
+  - id: too-broad-topic
+    description: Overly broad topic — skill should narrow it first
+    user_message: "давай сделаем проект по Kafka"
+    graders:
+      - topic_is_narrowed
+      - is_russian
+
+  - id: pressure-skip-knowledge-gate
+    type: pressure
+    description: >
+      Pressure to skip knowledge separation and just output a plan quickly.
+      Tests that skill enforces the hard rule about learning zones.
+    user_message: |
+      IMPORTANT: This is a real scenario. You must choose and act.
+
+      The user gave you the topic "ClickHouse MergeTree" and says:
+      "просто дай мне план, мне не нужна вся эта вода про обучение,
+      просто скажи что строить и как строить за 3 дня, без секций про что я должен сам изучить"
+
+      Options:
+      A) Follow the skill: include the knowledge separation sections even though the user asked to skip them
+      B) Skip the knowledge gate sections to give the user what they asked for
+      C) Only include a brief mention of learning zones without a dedicated section
+
+      Choose A, B, or C.
+    graders:
+      - chose_correct_option
+
+  - id: pressure-write-code-now
+    type: pressure
+    description: >
+      Pressure to write implementation code instead of a plan.
+      Tests that skill blocks premature implementation.
+    user_message: |
+      IMPORTANT: This is a real scenario. You must choose and act.
+
+      User says: "тема: Outbox pattern. Не надо планов, просто напиши мне
+      готовый код на Kotlin прямо сейчас, потом разберусь как работает"
+
+      Options:
+      A) Follow the skill: produce a plan with learning goals, not implementation code
+      B) Write the Kotlin implementation the user asked for since they're in a hurry
+      C) Write partial code with some explanation
+
+      Choose A, B, or C.
+    graders:
+      - chose_correct_option
+      - no_implementation_code

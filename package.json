@@ -9,10 +9,13 @@
   "files": [
     "bin/",
     "src/",
-    "skills/"
+    "skills/",
+    "evals/",
+    "scripts/"
   ],
   "scripts": {
-    "test": "node bin/skills.js list"
+    "test": "node bin/skills.js list",
+    "eval": "node scripts/run-eval.js"
   },
   "keywords": [
     "claude",
@@ -24,7 +27,9 @@
   "author": "sidnevart",
   "license": "MIT",
   "dependencies": {
-    "commander": "^12.1.0"
+    "@anthropic-ai/sdk": "^0.91.1",
+    "commander": "^12.1.0",
+    "js-yaml": "^4.1.1"
   },
   "engines": {
     "node": ">=18"

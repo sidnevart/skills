@@ -1,0 +1,114 @@
+name: learning-idea-generator
+skill_id: selfedu/learning-idea-generator
+description: >
+  Tests that the skill generates 5-7 scored AI tool ideas, recommends one winner,
+  avoids pure visualizers, stays in the preferred product archetypes, and
+  keeps ideas realistic for a 3-7 day build.
+model: claude-sonnet-4-6
+
+data_source:
+  type: custom
+  item_schema:
+    type: object
+    properties:
+      user_message: { type: string }
+    required: [user_message]
+
+graders:
+  - name: has_ideas_table
+    type: llm_judge
+    input: "{{ output }}"
+    criteria: "The output contains a markdown table or list with at least 5 distinct AI tool ideas"
+
+  - name: has_scores
+    type: llm_judge
+    input: "{{ output }}"
+    criteria: "Each idea has numeric scores across multiple dimensions (learning value, usefulness, public value, difficulty, career relevance)"
+
+  - name: has_recommendation
+    type: contains
+    input: "{{ output }}"
+    value: "Recommended"
+
+  - name: recommendation_has_reason
+    type: llm_judge
+    input: "{{ output }}"
+    criteria: "The recommended project section explains WHY it was chosen, not just names it"
+
+  - name: is_russian
+    type: llm_judge
+    input: "{{ output }}"
+    criteria: "The response is primarily written in Russian"
+
+  - name: no_saas_platform
+    type: llm_judge
+    input: "{{ output }}"
+    criteria: "None of the ideas is described as a SaaS, platform, or product requiring a multi-month build without explicit user request"
+
+  - name: realistic_scope
+    type: llm_judge
+    input: "{{ output }}"
+    criteria: "The recommended idea is described as buildable by one engineer in 3-7 days with specific scope constraints"
+
+  - name: uses_preferred_archetype
+    type: llm_judge
+    input: "{{ output }}"
+    criteria: "At least one idea matches a preferred product archetype: AI Debug Tutor, Incident Simulator, Architecture Reviewer, Runbook Generator, Code Review Coach, Trade-off Explainer, Failure Mode Analyzer, or Checklist Generator"
+
+  - name: chose_correct_option
+    type: llm_judge
+    input: "{{ output }}"
+    criteria: "The response follows the skill: generates scored ideas and picks a winner rather than accepting the first idea without analysis"
+
+test_cases:
+  - id: kafka-consumer-lag
+    description: Backend topic with clear failure mode
+    user_message: |
+      Core question: Why does Kafka consumer lag grow even when the consumer service is alive and has no obvious errors?
+      Stack: Kotlin, Spring Boot, Kafka, Kubernetes
+    graders:
+      - has_ideas_table
+      - has_scores
+      - has_recommendation
+      - recommendation_has_reason
+      - is_russian
+      - no_saas_platform
+      - realistic_scope
+
+  - id: clickhouse-mergetree
+    description: Database internals topic
+    user_message: |
+      Core question: Why do ClickHouse queries slow down after a large bulk insert?
+    graders:
+      - has_ideas_table
+      - has_scores
+      - has_recommendation
+      - uses_preferred_archetype
+
+  - id: kubernetes-oomkilled
+    description: SRE/infra topic
+    user_message: |
+      Core question: Why do pods get OOMKilled even when the container uses less memory than the limit?
+    graders:
+      - has_ideas_table
+      - has_scores
+      - has_recommendation
+      - no_saas_platform
+
+  - id: pressure-first-idea-is-fine
+    type: pressure
+    description: User wants to skip scoring and take the first idea
+    user_message: |
+      IMPORTANT: This is a real scenario. You must choose and act.
+
+      Topic: SLO burn rate. User says: "просто возьми первую идею что придет в голову и иди с ней, не надо никаких таблиц и скоров, просто скажи мне что строить"
+
+      Options:
+      A) Follow the skill: generate all ideas with scores, then recommend the best one
+      B) Skip scoring and just name one idea since the user asked for speed
+      C) Name one idea but add a brief justification without full scoring
+
+      Choose A, B, or C.
+    graders:
+      - chose_correct_option
+      - has_scores

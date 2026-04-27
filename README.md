@@ -2,38 +2,82 @@
 
 Personal collection of Claude Code and Codex skills. Install any skill into your project in one command.
 
-## Install
+**Package not on npm registry — install directly from GitHub.**
+
+## Install CLI
+
+### Option 1 — Global install (recommended)
 
 ```bash
-# one skill into current project (.claude/skills/)
-npx sidnevart-skills install selfedu/learning-ai-product
+npm install -g github:sidnevart/skills
+```
 
-# whole group
-npx sidnevart-skills install --group selfedu
+After this `skills` is available everywhere:
 
-# globally (~/.claude/skills/)
-npx sidnevart-skills install --group selfedu --global
+```bash
+skills list
+skills install --group selfedu --global
+```
 
-# claude + codex (also writes to AGENTS.md)
-npx sidnevart-skills install --group selfedu --codex
+### Option 2 — npx without installing
 
-# codex only
-npx sidnevart-skills install selfedu/learning-product-reviewer --codex-only
+No installation needed. Downloads the package on the fly each run:
+
+```bash
+npx github:sidnevart/skills install --group selfedu --global
+npx github:sidnevart/skills list
+```
+
+### Option 3 — Clone and link
+
+```bash
+git clone git@github.com:sidnevart/skills.git ~/skills
+npm install -g ~/skills
+skills list
+```
+
+Use this option when you want to edit skills locally and see changes immediately.
+
+---
+
+## Usage
+
+```bash
+# install one skill into current project (.claude/skills/)
+skills install selfedu/learning-ai-product
+
+# install all skills in a group
+skills install --group selfedu
+
+# install globally (~/.claude/skills/) — available in every project
+skills install --group selfedu --global
+
+# also write to AGENTS.md for Codex
+skills install --group selfedu --codex
+
+# Codex only
+skills install selfedu/learning-product-reviewer --codex-only
+
+# superpowers by category
+skills install --group superpowers/quality --global
 ```
 
 ## Commands
 
 | Command | Description |
 |---------|-------------|
-| `skills list` | List all skills |
-| `skills list <group>` | List skills in a group |
-| `skills install <id>` | Install a skill |
-| `skills install --group <g>` | Install all skills in a group |
-| `skills info <id>` | Show skill description |
+| `skills list` | Tree of all skills |
+| `skills list <prefix>` | Filter by group prefix |
+| `skills groups` | Top-level groups with counts |
+| `skills install <id>` | Install a skill by full ID |
+| `skills install --group <prefix>` | Install all skills under a prefix |
+| `skills info <id>` | Show skill frontmatter |
+
+---
 
 ## Skills
 
-### selfedu/
+### selfedu/ — 7 skills
 
 Learning-to-AI-Product system. Turns any engineering topic into a small publishable AI mini-product.
 
@@ -47,8 +91,6 @@ Learning-to-AI-Product system. Turns any engineering topic into a small publisha
 | `learning-product-reviewer` | Review before publishing |
 | `learning-publish-pack` | Package for GitHub, Twitter, Telegram |
 
-#### Workflow
-
 ```
 Topic
 → [topic-clarifier]   → core question
@@ -60,17 +102,37 @@ Topic
 → [publish-pack]      → GitHub + post
 ```
 
-You can run `learning-ai-product` to do all four planning steps at once, or call each skill separately for more control.
+### superpowers/ — 14 skills (from github.com/obra/superpowers)
+
+| Category | Skills |
+|----------|--------|
+| `planning/` | brainstorming, writing-plans |
+| `development/` | test-driven-development, subagent-driven-development, dispatching-parallel-agents, executing-plans, using-git-worktrees |
+| `quality/` | systematic-debugging, verification-before-completion, requesting-code-review, receiving-code-review, finishing-a-development-branch |
+| `meta/` | writing-skills, using-superpowers |
+
+### meta/ — 1 skill
+
+| Skill | Role |
+|-------|------|
+| `skill-evaluator` | Create evals (test suites) for Claude Code skills |
+
+---
+
+## Running Evals
+
+```bash
+# requires ANTHROPIC_API_KEY
+npm run eval -- evals/selfedu/learning-ai-product.yaml
+npm run eval -- evals/selfedu/  # run all evals in a directory
+```
+
+See `evals/` for eval definitions, `scripts/run-eval.js` for the runner.
+
+---
 
 ## Where skills are installed
 
 **Claude Code:** `.claude/skills/<name>/SKILL.md` (project) or `~/.claude/skills/<name>/SKILL.md` (global)
 
-**Codex:** appended to `AGENTS.md` in the current directory, wrapped in `<!-- skill:group/name -->` markers so re-installing updates in place.
-
-## Add to PATH (optional)
-
-```bash
-npm install -g sidnevart-skills
-skills list
-```
+**Codex:** appended to `AGENTS.md` in the current directory, wrapped in `<!-- skill:id -->` markers so re-installing updates in place.

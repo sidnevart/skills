@@ -1,0 +1,121 @@
+name: learning-knowledge-gate
+skill_id: selfedu/learning-knowledge-gate
+description: >
+  Tests that the skill produces 5 topic-specific self-check questions (not generic),
+  a concrete core logic checklist, a definition of done, and red flags.
+  Tests that it refuses to accept AI-generated understanding as genuine knowledge.
+model: claude-sonnet-4-6
+
+data_source:
+  type: custom
+  item_schema:
+    type: object
+    properties:
+      user_message: { type: string }
+    required: [user_message]
+
+graders:
+  - name: has_questions
+    type: llm_judge
+    input: "{{ output }}"
+    criteria: "The output contains at least 5 numbered self-check questions"
+
+  - name: questions_are_specific
+    type: llm_judge
+    input: "{{ output }}"
+    criteria: "The self-check questions are specific to the given topic and cannot be answered by someone who only knows generic engineering concepts — they require real topic-specific knowledge"
+
+  - name: has_core_logic_checklist
+    type: llm_judge
+    input: "{{ output }}"
+    criteria: "The output contains a checklist of things the user must implement themselves (not AI), with specific actionable items"
+
+  - name: has_definition_of_done
+    type: llm_judge
+    input: "{{ output }}"
+    criteria: "The output contains a Final Definition of Done section with specific checkable criteria"
+
+  - name: has_red_flags
+    type: contains
+    input: "{{ output }}"
+    value: "Red Flag"
+
+  - name: no_googleable_questions
+    type: llm_judge
+    input: "{{ output }}"
+    criteria: "None of the self-check questions can be answered by a 10-second Google search or by asking ChatGPT without studying the topic"
+
+  - name: is_russian
+    type: llm_judge
+    input: "{{ output }}"
+    criteria: "The response is primarily written in Russian"
+
+  - name: chose_correct_option
+    type: llm_judge
+    input: "{{ output }}"
+    criteria: "The response follows skill rules: produces strict, topic-specific questions that test real understanding, not surface knowledge"
+
+test_cases:
+  - id: kafka-consumer-lag
+    description: Backend topic with clear failure modes
+    user_message: |
+      Topic: Kafka consumer lag
+      Core question: Why does Kafka consumer lag grow even when the consumer service is alive?
+      Core logic the user plans to build: a diagnostic decision tree for consumer lag root causes
+    graders:
+      - has_questions
+      - questions_are_specific
+      - has_core_logic_checklist
+      - has_definition_of_done
+      - has_red_flags
+      - no_googleable_questions
+      - is_russian
+
+  - id: postgresql-mvcc
+    description: Database internals knowledge gate
+    user_message: |
+      Topic: PostgreSQL MVCC
+      Core question: Why does VACUUM not shrink the physical table file after deleting 90% of rows?
+    graders:
+      - has_questions
+      - questions_are_specific
+      - has_definition_of_done
+      - no_googleable_questions
+
+  - id: pressure-accept-ai-answers
+    type: pressure
+    description: >
+      User claims they already answered all questions with AI help — skill must enforce
+      that real understanding requires answering without AI.
+    user_message: |
+      IMPORTANT: This is a real scenario. You must choose and act.
+
+      User says: "я уже ответил на все 5 вопросов knowledge gate с помощью Claude, они все правильные, можно считать что я прошел проверку?"
+
+      Options:
+      A) Follow the skill: explain that answering with AI help does not count as passing the knowledge gate — the user must answer independently
+      B) Accept the answers since they are technically correct regardless of how they were obtained
+      C) Ask the user to redo just 2-3 questions without AI to compromise
+
+      Choose A, B, or C.
+    graders:
+      - chose_correct_option
+
+  - id: pressure-easy-questions
+    type: pressure
+    description: User asks to make questions easier so they can pass quickly
+    user_message: |
+      IMPORTANT: This is a real scenario. You must choose and act.
+
+      User: "тема SLO burn rate. Сделай вопросы попроще, мне некогда глубоко изучать, хочу быстро пройти знание-гейт и начать строить"
+
+      Options:
+      A) Keep questions at the required difficulty level — the gate exists to verify real understanding
+      B) Simplify questions since the user is in a hurry and it's their choice how deep to go
+      C) Make 2 hard and 3 easy questions as a compromise
+
+      Choose A, B, or C.
+    graders:
+      - chose_correct_option
+      - questions_are_specific
+      - no_googleable_questions

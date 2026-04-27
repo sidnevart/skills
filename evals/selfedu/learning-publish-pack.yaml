@@ -1,0 +1,123 @@
+name: learning-publish-pack
+skill_id: selfedu/learning-publish-pack
+description: >
+  Tests that the skill produces all required publication artifacts without overhyping,
+  uses honest language, keeps Twitter thread short, and Telegram post is in Russian.
+model: claude-sonnet-4-6
+
+data_source:
+  type: custom
+  item_schema:
+    type: object
+    properties:
+      user_message: { type: string }
+    required: [user_message]
+
+graders:
+  - name: has_readme
+    type: contains
+    input: "{{ output }}"
+    value: "GitHub README"
+
+  - name: has_twitter_thread
+    type: contains
+    input: "{{ output }}"
+    value: "Twitter"
+
+  - name: has_telegram_post
+    type: contains
+    input: "{{ output }}"
+    value: "Telegram"
+
+  - name: has_demo_script
+    type: contains
+    input: "{{ output }}"
+    value: "Demo Script"
+
+  - name: has_repo_description
+    type: contains
+    input: "{{ output }}"
+    value: "Repo Description"
+
+  - name: telegram_is_russian
+    type: llm_judge
+    input: "{{ output }}"
+    criteria: "The Telegram post section is written in Russian"
+
+  - name: no_overhype
+    type: llm_judge
+    input: "{{ output }}"
+    criteria: "The output does NOT use words like 'revolutionary', 'game-changing', 'ultimate', 'groundbreaking', or similar marketing hype"
+
+  - name: honest_limitations
+    type: llm_judge
+    input: "{{ output }}"
+    criteria: "The README or publish pack includes a Limitations section that honestly describes what the project cannot do"
+
+  - name: engineering_insight_in_readme
+    type: llm_judge
+    input: "{{ output }}"
+    criteria: "The README explains the engineering insight or concept behind the tool, not just the features — a reader understands what was learned"
+
+  - name: twitter_is_short
+    type: llm_judge
+    input: "{{ output }}"
+    criteria: "The Twitter thread has 5 or fewer tweets"
+
+  - name: chose_correct_option
+    type: llm_judge
+    input: "{{ output }}"
+    criteria: "The response follows skill rules: writes like an engineer, no hype, includes limitations"
+
+test_cases:
+  - id: kafka-lag-debugger
+    description: Full publish pack for a backend debugging tool
+    user_message: |
+      Project name: Kafka Lag Debugger
+      Topic: Kafka consumer lag
+      What it does: AI tool that analyzes lag metrics and explains root causes via a decision tree
+      What I learned: Consumer group behavior, partition assignment, poll interval mechanics, rebalance triggers
+      GitHub link: https://github.com/user/kafka-lag-debugger
+      Key insight: Lag grows silently when consumers poll but don't commit — not just when they crash
+      Limitations: Only works with standard Kafka metrics, no Confluent-specific lag metrics
+    graders:
+      - has_readme
+      - has_twitter_thread
+      - has_telegram_post
+      - has_demo_script
+      - has_repo_description
+      - telegram_is_russian
+      - no_overhype
+      - honest_limitations
+      - engineering_insight_in_readme
+      - twitter_is_short
+
+  - id: minimal-input
+    description: Only project name and topic — placeholders expected for missing info
+    user_message: |
+      Project name: SLO Burn Advisor
+      Topic: SLO burn rate
+      What it does: generates runbooks for SLO budget exhaustion scenarios
+    graders:
+      - has_readme
+      - has_telegram_post
+      - telegram_is_russian
+      - no_overhype
+
+  - id: pressure-add-hype
+    type: pressure
+    description: User asks to make the post more exciting and viral
+    user_message: |
+      IMPORTANT: This is a real scenario. You must choose and act.
+
+      User says: "сделай publish pack но добавь что-то вайральное, типа 'this tool will change how you debug Kafka forever', мне нужно много ретвитов"
+
+      Options:
+      A) Follow the skill: write honest engineer-style copy without hype phrases
+      B) Add the requested hype phrases since the user knows their audience
+      C) Add mild hype but avoid the most egregious phrases
+
+      Choose A, B, or C.
+    graders:
+      - chose_correct_option
+      - no_overhype

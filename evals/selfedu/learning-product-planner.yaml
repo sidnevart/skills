@@ -1,0 +1,124 @@
+name: learning-product-planner
+skill_id: selfedu/learning-product-planner
+description: >
+  Tests that the skill produces a concrete product spec and day-by-day build plan
+  with realistic examples, proper learning/AI separation, and Day 1 always being
+  learning (no code).
+model: claude-sonnet-4-6
+
+data_source:
+  type: custom
+  item_schema:
+    type: object
+    properties:
+      user_message: { type: string }
+    required: [user_message]
+
+graders:
+  - name: has_product_spec
+    type: contains
+    input: "{{ output }}"
+    value: "Product Spec"
+
+  - name: has_target_user
+    type: contains
+    input: "{{ output }}"
+    value: "Target user"
+
+  - name: has_mvp_scope
+    type: contains
+    input: "{{ output }}"
+    value: "MVP Scope"
+
+  - name: has_not_mvp
+    type: llm_judge
+    input: "{{ output }}"
+    criteria: "The output explicitly lists things that are NOT in the MVP scope"
+
+  - name: has_day_plan
+    type: llm_judge
+    input: "{{ output }}"
+    criteria: "The output contains a day-by-day plan with at least 3 days, each having a goal, task, output artifact, and definition of done"
+
+  - name: day1_is_learning
+    type: llm_judge
+    input: "{{ output }}"
+    criteria: "Day 1 of the plan is dedicated to learning/understanding, not writing code"
+
+  - name: has_concrete_examples
+    type: llm_judge
+    input: "{{ output }}"
+    criteria: "The product spec includes concrete example input and example output that are realistic, not generic placeholders like '[example]'"
+
+  - name: has_knowledge_separation
+    type: llm_judge
+    input: "{{ output }}"
+    criteria: "The output separates what the user must build themselves from what AI can help with (two explicit lists)"
+
+  - name: is_russian
+    type: llm_judge
+    input: "{{ output }}"
+    criteria: "The response is primarily written in Russian"
+
+  - name: chose_correct_option
+    type: llm_judge
+    input: "{{ output }}"
+    criteria: "The response follows skill rules: Day 1 is learning-only, core logic day comes before AI layer day"
+
+test_cases:
+  - id: kafka-lag-debugger
+    description: Full spec for a Kafka debugging AI tool
+    user_message: |
+      Project name: Kafka Lag Debugger
+      Core question: Why does Kafka consumer lag grow even when the service is alive?
+      What it does: AI tool that analyzes Kafka metrics and explains root causes of lag
+      Days available: 5
+    graders:
+      - has_product_spec
+      - has_target_user
+      - has_mvp_scope
+      - has_not_mvp
+      - has_day_plan
+      - day1_is_learning
+      - has_concrete_examples
+      - has_knowledge_separation
+      - is_russian
+
+  - id: slo-burn-analyzer
+    description: SRE tool with 3-day constraint
+    user_message: |
+      Project: SLO Burn Rate Analyzer
+      Core question: How to detect SLO burn rate spikes before budget exhaustion?
+      What it does: generates burn rate runbook from error budget state
+      Days: 3
+    graders:
+      - has_day_plan
+      - day1_is_learning
+      - has_mvp_scope
+      - is_russian
+
+  - id: minimal-input
+    description: Minimal input — skill should still produce full spec
+    user_message: "сделай план для проекта: AI Incident Simulator для Kubernetes OOMKilled"
+    graders:
+      - has_product_spec
+      - has_day_plan
+      - is_russian
+
+  - id: pressure-skip-day1
+    type: pressure
+    description: User demands to start coding on Day 1
+    user_message: |
+      IMPORTANT: This is a real scenario. You must choose and act.
+
+      User says: "я уже знаю тему Outbox Pattern достаточно хорошо, поэтому в плане день 1 должен быть сразу код, не надо мне дня на изучение, давай сразу строить"
+
+      Options:
+      A) Follow the skill: keep Day 1 as learning/understanding even if the user claims they already know the topic
+      B) Accept the user's claim and make Day 1 a coding day since they say they know it
+      C) Make Day 1 a "quick review" that's half learning half coding
+
+      Choose A, B, or C.
+    graders:
+      - chose_correct_option
+      - day1_is_learning
