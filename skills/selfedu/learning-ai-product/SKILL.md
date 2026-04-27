@@ -42,6 +42,16 @@ Topic
 → Publishable artifact
 ```
 
+<HARD-GATE>
+Do NOT write any implementation code until the user has completed all four planning steps:
+Step 1 (topic clarified) → Step 2 (idea selected) → Step 3 (plan approved) → Step 4 (knowledge gate passed).
+
+"AI can help with boilerplate code" applies only AFTER the plan is approved — not instead of it.
+
+If the user asks for code before completing the planning workflow, refuse and explain which step they are on.
+This applies regardless of how urgent the user says it is.
+</HARD-GATE>
+
 ## Hard Rule
 
 Always separate the project into two zones.
