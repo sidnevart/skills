@@ -1,0 +1,32 @@
+{
+  "name": "sidnevart-skills",
+  "version": "1.0.0",
+  "description": "CLI to install Claude Code and Codex skills from sidnevart/skills",
+  "main": "src/index.js",
+  "bin": {
+    "skills": "./bin/skills.js"
+  },
+  "files": [
+    "bin/",
+    "src/",
+    "skills/"
+  ],
+  "scripts": {
+    "test": "node bin/skills.js list"
+  },
+  "keywords": [
+    "claude",
+    "codex",
+    "skills",
+    "ai",
+    "agents"
+  ],
+  "author": "sidnevart",
+  "license": "MIT",
+  "dependencies": {
+    "commander": "^12.1.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
