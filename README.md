@@ -113,6 +113,12 @@ Learning-to-AI-Product system. Turns any engineering topic into a small publisha
 | `quality/` | systematic-debugging, verification-before-completion, requesting-code-review, receiving-code-review, finishing-a-development-branch |
 | `meta/` | writing-skills, using-superpowers |
 
+### writing/ — 1 skill
+
+| Skill | Role |
+|-------|------|
+| `engineering-article` | Write technical articles for Habr, dev.to, Medium |
+
 ### meta/ — 1 skill
 
 | Skill | Role |
