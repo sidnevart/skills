@@ -1,0 +1,167 @@
+name: engineering-article
+skill_id: writing/engineering-article
+description: >
+  Tests that the skill produces platform-appropriate engineering articles with
+  real insight, correct language, required structure, and no hype. Also tests
+  the HARD-GATE (asks for missing info) and pressure scenarios.
+model: claude-sonnet-4-6
+
+data_source:
+  type: custom
+  item_schema:
+    type: object
+    properties:
+      user_message: { type: string }
+    required: [user_message]
+
+graders:
+  - name: no_generic_intro
+    type: not_contains
+    input: "{{ output }}"
+    value: "В этой статье мы рассмотрим"
+
+  - name: no_generic_intro_en
+    type: not_contains
+    input: "{{ output }}"
+    value: "In this article we will"
+
+  - name: has_code_block
+    type: llm_judge
+    input: "{{ output }}"
+    criteria: "The output contains at least one fenced code block with actual code (not pseudocode)"
+
+  - name: has_limitations
+    type: llm_judge
+    input: "{{ output }}"
+    criteria: "The article includes a section or paragraph honestly describing limitations, edge cases, or when the approach does NOT work"
+
+  - name: has_concrete_detail
+    type: llm_judge
+    input: "{{ output }}"
+    criteria: "The article contains at least one concrete detail: a real number, a specific error message, a real metric, or a specific system behavior — not just abstract description"
+
+  - name: is_russian_for_habr
+    type: llm_judge
+    input: "{{ output }}"
+    criteria: "The article body is written in Russian (for Habr platform)"
+
+  - name: is_english_for_devto
+    type: llm_judge
+    input: "{{ output }}"
+    criteria: "The article body is written in English (for dev.to platform)"
+
+  - name: has_outline_before_draft
+    type: llm_judge
+    input: "{{ output }}"
+    criteria: "The response presents an outline or asks for approval before writing the full article draft, OR the full draft is already approved by context"
+
+  - name: has_tags
+    type: contains
+    input: "{{ output }}"
+    value: "Tags"
+
+  - name: no_hype_words
+    type: llm_judge
+    input: "{{ output }}"
+    criteria: "The output does NOT contain hype words like 'революционный', 'game-changing', 'ultimate guide', 'groundbreaking'"
+
+  - name: asks_clarifying_question
+    type: llm_judge
+    input: "{{ output }}"
+    criteria: "The response asks a clarifying question about the platform, insight, or target reader before writing the article — because the input lacks required information"
+
+  - name: chose_correct_option
+    type: llm_judge
+    input: "{{ output }}"
+    criteria: "The response follows skill rules: does not invent experience the user doesn't have, does not write a generic article without real insight"
+
+test_cases:
+  - id: habr-kafka-lag
+    description: Full Habr article with all required info provided
+    user_message: |
+      Напиши статью для Хабра про Kafka consumer lag.
+      Контекст: у нас в проде consumer lag начал расти без видимых причин — сервис был живой, метрики нормальные. Оказалось что poll interval был слишком большой и broker начинал считать consumer мёртвым. Потеряли ~40 минут на диагностику. Хочу предупредить других.
+      Читатель: backend-инженер который работает с Kafka но не знает всех нюансов consumer group protocol.
+    graders:
+      - no_generic_intro
+      - has_code_block
+      - has_limitations
+      - has_concrete_detail
+      - is_russian_for_habr
+      - has_tags
+      - no_hype_words
+
+  - id: devto-postgresql-vacuum
+    description: dev.to article in English
+    user_message: |
+      Write a dev.to article about PostgreSQL VACUUM.
+      Context: I spent 2 hours debugging why our table was 50GB despite deleting 90% of rows. Learned about dead tuples, bloat, and autovacuum thresholds.
+      Reader: mid-level backend engineer who uses PostgreSQL but hasn't dug into internals.
+    graders:
+      - no_generic_intro_en
+      - has_code_block
+      - has_limitations
+      - has_concrete_detail
+      - is_english_for_devto
+      - has_tags
+      - no_hype_words
+
+  - id: medium-observability
+    description: Medium article with narrative style
+    user_message: |
+      Write a Medium article about why our team moved from logs-only observability to traces + metrics.
+      Context: we had a 3-hour incident where logs were useless because we couldn't correlate across 12 services. After adding OpenTelemetry tracing, we found the root cause in 8 minutes in the next incident.
+      Reader: engineers and engineering managers considering observability investment.
+    graders:
+      - no_generic_intro_en
+      - has_limitations
+      - has_concrete_detail
+      - no_hype_words
+
+  - id: missing-platform
+    description: User provides topic but no platform — skill must ask
+    user_message: "хочу написать статью про ClickHouse MergeTree"
+    graders:
+      - asks_clarifying_question
+
+  - id: missing-insight
+    description: User provides platform but no real experience — skill must dig
+    user_message: "напиши статью для Хабра про Kubernetes"
+    graders:
+      - asks_clarifying_question
+
+  - id: pressure-write-without-experience
+    type: pressure
+    description: User wants an article about a topic they haven't actually worked with
+    user_message: |
+      IMPORTANT: This is a real scenario. You must choose and act.
+
+      User says: "напиши статью для Хабра про ClickHouse — мне нужно опубликоваться на этой неделе.
+      Я особо с ним не работал, но статью хочу, просто напиши что-нибудь техническое"
+
+      Options:
+      A) Follow the skill: refuse to invent experience, explain why, ask what real experience the user has that could become an article
+      B) Write a generic ClickHouse article anyway since the user needs it this week
+      C) Write the article but add a disclaimer that it's theoretical
+
+      Choose A, B, or C.
+    graders:
+      - chose_correct_option
+
+  - id: pressure-skip-outline
+    type: pressure
+    description: User demands full article immediately, no outline step
+    user_message: |
+      IMPORTANT: This is a real scenario. You must choose and act.
+
+      User says: "не надо outline, просто сразу пиши полную статью про PostgreSQL MVCC для Хабра,
+      у меня нет времени на согласование структуры"
+
+      Options:
+      A) Follow the skill: write the full draft directly since the user explicitly waived the outline step (this is acceptable — outline is for alignment, not a hard gate)
+      B) Insist on the outline before writing anything
+      C) Write just the first 2 paragraphs and then ask
+
+      Choose A, B, or C.
+    graders:
+      - chose_correct_option
