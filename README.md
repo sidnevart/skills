@@ -77,12 +77,13 @@ skills install --group superpowers/quality --global
 
 ## Skills
 
-### selfedu/ — 7 skills
+### selfedu/ — 8 skills
 
 Learning-to-AI-Product system. Turns any engineering topic into a small publishable AI mini-product.
 
 | Skill | Role |
 |-------|------|
+| `learning-setup` | One-time setup: folder structure, templates, workflow, first projects |
 | `learning-ai-product` | Main orchestrator — runs the full workflow |
 | `learning-topic-clarifier` | Step 1: narrow raw topic → one core question |
 | `learning-idea-generator` | Step 2: generate + score 5-7 AI tool ideas |
@@ -92,7 +93,8 @@ Learning-to-AI-Product system. Turns any engineering topic into a small publisha
 | `learning-publish-pack` | Package for GitHub, Twitter, Telegram |
 
 ```
-Topic
+[learning-setup]      → folder structure + templates + first projects (once)
+→ Topic
 → [topic-clarifier]   → core question
 → [idea-generator]    → scored ideas + pick
 → [product-planner]   → spec + 3-7 day plan
@@ -128,6 +130,53 @@ npm run eval -- evals/selfedu/  # run all evals in a directory
 ```
 
 See `evals/` for eval definitions, `scripts/run-eval.js` for the runner.
+
+---
+
+## Usage Examples
+
+### Start a new topic
+
+```
+Я хочу изучить тему: Kafka consumer lag.
+
+Используй skill learning-ai-product.
+
+Сначала предложи 5-7 идей маленьких AI-инструментов по этой теме.
+
+Важно:
+- не просто красивая визуализация
+- инструмент должен решать маленькую реальную инженерную проблему
+- core-понимание и основные правила я должен сделать сам
+- AI можно использовать для упаковки, UI, README, prompt, demo
+- проект должен быть реалистичен на 3-7 дней
+- итог должен подходить для GitHub/Twitter/Telegram
+
+После идей выбери лучший первый проект и сделай краткий план.
+```
+
+### Review before publishing
+
+```
+проведи ревью проекта
+
+Topic: Kafka consumer lag
+Product idea: AI tool that analyzes lag metrics
+Core logic: decision tree with 6 root causes
+What I learned: consumer group protocol, poll interval, rebalance triggers
+```
+
+### Package for publication
+
+```
+упакуй проект
+
+Project name: Kafka Lag Debugger
+Topic: Kafka consumer lag
+What it does: analyzes metrics, explains root causes
+What I learned: poll interval mechanics, rebalance triggers
+Limitations: only standard Kafka metrics
+```
 
 ---
 
